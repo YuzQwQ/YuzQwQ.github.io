@@ -1,220 +1,314 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>避障小游戏 · 简易版</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif; background: #0f172a; color: #e5e7eb; }
-    .wrap { max-width: 900px; margin: 40px auto; padding: 0 16px; }
-    .card { background: #111827; border: 1px solid #1f2937; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); overflow: hidden; }
-    .top { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #1f2937; }
-    .title { font-weight: 600; letter-spacing: .5px; }
-    .hud { display: flex; gap: 12px; font-size: 14px; color: #9ca3af; }
-    .canvas-box { position: relative; }
-    canvas { width: 100%; height: 480px; display: block; background: linear-gradient(180deg, #0b1220, #0f172a 40%, #0b1220); }
-    .overlay { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-    .msg { text-align: center; }
-    .msg h2 { margin: 0 0 6px; font-size: 22px; }
-    .msg p { margin: 0; color: #9ca3af; }
-    .btns { display: flex; gap: 10px; margin-top: 12px; justify-content: center; }
-    button { pointer-events: auto; background: #2563eb; color: #fff; border: none; border-radius: 10px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
-    button.secondary { background: #334155; }
-    .footer { padding: 12px 16px; border-top: 1px solid #1f2937; color: #94a3b8; font-size: 13px; }
-    a { color: #60a5fa; text-decoration: none; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>平台跳跃 · 进阶版</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; background: #0f172a; color: #e5e7eb; overflow: hidden; }
+#game { display: block; background: #0b1220; }
+#ui { position: fixed; inset: 0 0 auto 0; display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: rgba(15,23,42,.8); backdrop-filter: blur(6px); border-bottom: 1px solid #1f2937; font-size: 14px; }
+#ui span { margin-right: 12px; }
+#ctrl { position: fixed; top: 10px; right: 16px; display: flex; gap: 8px; }
+button { background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+button.secondary { background: #334155; }
+#panel { position: fixed; right: 0; top: 50%; transform: translateY(-50%); width: 260px; max-height: 90vh; overflow-y: auto; background: rgba(17,24,39,.95); border: 1px solid #1f2937; border-right: none; border-radius: 12px 0 0 12px; padding: 12px 14px; font-size: 12px; display: none; }
+#panel h4 { margin: 0 0 8px; font-size: 14px; }
+#panel label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+#panel input[type=range] { width: 120px; }
+#panel small { color: #94a3b8; }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card">
-      <div class="top">
-        <div class="title">避障小游戏 · 简易版</div>
-        <div class="hud">
-          <div>分数：<span id="score">0</span></div>
-          <div>最佳：<span id="best">0</span></div>
-        </div>
-      </div>
-      <div class="canvas-box">
-        <canvas id="game" width="800" height="480" aria-label="Game canvas"></canvas>
-        <div class="overlay" id="overlay">
-          <div class="msg">
-            <h2 id="state">按空格开始</h2>
-            <p>操作：← → 移动；空格开始/重开</p>
-            <div class="btns">
-              <button id="startBtn">开始游戏</button>
-              <button id="hardBtn" class="secondary">切换难度</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="footer">
-        小技巧：保持横移、观察落点；得分随时间与躲避计数增长。
-      </div>
-    </div>
+<canvas id="game"></canvas>
+
+<!-- HUD -->
+<div id="ui">
+  <div>
+    <span>生命：<span id="hp">3</span></span>
+    <span>金币：<span id="coins">0</span></span>
+    <span>关卡：<span id="level">1</span></span>
   </div>
+  <div id="ctrl">
+    <button id="pauseBtn">暂停</button>
+    <button id="panelBtn" class="secondary">调参</button>
+  </div>
+</div>
 
-  <script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-    const overlay = document.getElementById('overlay');
-    const startBtn = document.getElementById('startBtn');
-    const hardBtn = document.getElementById('hardBtn');
-    const scoreEl = document.getElementById('score');
-    const bestEl = document.getElementById('best');
-    const stateEl = document.getElementById('state');
+<!-- 可视化调参面板 -->
+<div id="panel">
+  <h4>实时调参</h4>
+  <label>重力 <input type="range" id="gSlider" min="600" max="1800" step="60" /><small id="gVal">1200</small></label>
+  <label>跳跃速度 <input type="range" id="jSlider" min="300" max="700" step="20" /><small id="jVal">500</small></label>
+  <label>玩家速度 <input type="range" id="sSlider" min="160" max="480" step="20" /><small id="sVal">320</small></label>
+  <label>敌人速度 <input type="range" id="eSlider" min="40" max="160" step="10" /><small id="eVal">80</small></label>
+  <label>平台间距 <input type="range" id="dSlider" min="140" max="320" step="20" /><small id="dVal">220</small></label>
+  <button id="resetBtn" class="secondary">重置关卡</button>
+</div>
 
-    // DPR 适配
-    function fitCanvas() {
-      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-      const cssW = canvas.clientWidth;
-      const cssH = canvas.clientHeight;
-      canvas.width = Math.floor(cssW * dpr);
-      canvas.height = Math.floor(cssH * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-    window.addEventListener('resize', fitCanvas);
-    fitCanvas();
+<script>
+/* ====== 通用工具 ====== */
+const rand = (a,b) => Math.random()*(b-a)+a;
+const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
 
-    let running = false;
-    let gameOver = false;
-    let last = 0;
-    let elapsed = 0;
-    let score = 0;
-    let best = Number(localStorage.getItem('mini_dodge_best') || 0);
-    bestEl.textContent = best;
+/* ====== 画布与适配（统一 CSS 像素） ====== */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+function resize() {
+  // 直接用 CSS 像素，禁用 DPR 缩放，避免高分别率裁切
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  ctx.setTransform(1,0,0,1,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
 
-    const player = { x: 380, y: 400, w: 40, h: 40, speed: 260 };
-    const keys = new Set();
-    const obstacles = [];
+/* ====== 输入 ====== */
+const keys = new Set();
+window.addEventListener('keydown', e => keys.add(e.code));
+window.addEventListener('keyup', e => keys.delete(e.code));
 
-    let spawnInterval = 0.9; // 秒
-    let spawnTimer = 0;
-    let difficulty = 0; // 0 简单，1 困难
+/* ====== 参数（可实时调整） ====== */
+const PARAM = {
+  gravity: 1200,
+  jumpVel: 500,
+  playerSpeed: 320,
+  enemySpeed: 80,
+  platformGap: 220,
+  deathY: 800,          // 掉落致死线（世界坐标）
+};
 
-    function reset() {
-      running = false;
-      gameOver = false;
-      score = 0;
-      elapsed = 0;
-      player.x = (canvas.width / (window.devicePixelRatio || 1)) / 2 - player.w / 2;
-      player.y = (canvas.height / (window.devicePixelRatio || 1)) - 80;
-      obstacles.length = 0;
-      spawnTimer = 0;
-      spawnInterval = difficulty ? 0.55 : 0.9;
-      stateEl.textContent = '按空格开始';
-      overlay.style.display = 'grid';
-      updateHUD();
-    }
+/* ====== 玩家 ====== */
+const player = {
+  x: 120, y: 300, w: 24, h: 32,
+  vx: 0, vy: 0, onGround: false,
+  hp: 3, coins: 0, invuln: 0,
+};
 
-    function updateHUD() { scoreEl.textContent = Math.floor(score); }
+/* ====== 关卡与实体 ====== */
+let level = 1;
+let platforms = [];
+let coins = [];
+let enemies = [];
+let particles = [];
+let cam = {x: 0, y: 0};
 
-    function spawn() {
-      const w = 26 + Math.random() * 50;
-      const x = Math.random() * ((canvas.clientWidth - w));
-      const speed = (difficulty ? 180 : 140) + Math.random() * (difficulty ? 160 : 120);
-      obstacles.push({ x, y: -60, w, h: 18 + Math.random() * 20, speed });
-    }
-
-    function collide(a, b) {
-      return !(a.x + a.w < b.x || a.x > b.x + b.w || a.y + a.h < b.y || a.y > b.y + b.h);
-    }
-
-    function step(ts) {
-      const now = ts / 1000;
-      const dt = last ? now - last : 0;
-      last = now;
-      if (running) {
-        // 玩家移动
-        if (keys.has('ArrowLeft')) player.x -= player.speed * dt;
-        if (keys.has('ArrowRight')) player.x += player.speed * dt;
-        player.x = Math.max(8, Math.min(canvas.clientWidth - player.w - 8, player.x));
-
-        // 生成与下落
-        spawnTimer += dt;
-        const ramp = Math.min(0.6, elapsed / 25); // 难度缓慢提升
-        const interval = spawnInterval - ramp * 0.35;
-        if (spawnTimer >= interval) { spawn(); spawnTimer = 0; }
-
-        for (let i = obstacles.length - 1; i >= 0; i--) {
-          const o = obstacles[i];
-          o.y += o.speed * dt;
-          if (o.y > canvas.clientHeight + 40) {
-            obstacles.splice(i, 1);
-            score += 5; // 躲过加分
-          }
-        }
-
-        // 碰撞检测
-        for (const o of obstacles) {
-          if (collide(player, o)) {
-            running = false; gameOver = true; overlay.style.display = 'grid';
-            stateEl.textContent = '游戏结束 · 空格重开';
-            best = Math.max(best, Math.floor(score));
-            localStorage.setItem('mini_dodge_best', String(best));
-            bestEl.textContent = best;
-          }
-        }
-
-        // 计分
-        elapsed += dt;
-        score += dt * 2;
-        updateHUD();
-      }
-
-      // 绘制
-      draw();
-      requestAnimationFrame(step);
-    }
-
-    function draw() {
-      // 背景网格
-      ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
-      ctx.strokeStyle = '#1e293b';
-      ctx.lineWidth = 1;
-      for (let x = 0; x < canvas.clientWidth; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.clientHeight); ctx.stroke(); }
-      for (let y = 0; y < canvas.clientHeight; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.clientWidth, y); ctx.stroke(); }
-
-      // 玩家
-      ctx.fillStyle = '#10b981';
-      ctx.fillRect(player.x, player.y, player.w, player.h);
-
-      // 障碍
-      ctx.fillStyle = '#ef4444';
-      for (const o of obstacles) {
-        ctx.fillRect(o.x, o.y, o.w, o.h);
-      }
-
-      // 顶部渐隐
-      const g = ctx.createLinearGradient(0, 0, 0, 120);
-      g.addColorStop(0, 'rgba(15,23,42,.9)');
-      g.addColorStop(1, 'rgba(15,23,42,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, canvas.clientWidth, 120);
-    }
-
-    // 事件
-    window.addEventListener('keydown', e => {
-      if (e.code === 'Space') {
-        if (gameOver || !running) { overlay.style.display = 'none'; running = true; gameOver = false; last = 0; }
-      }
-      if (['ArrowLeft','ArrowRight'].includes(e.key)) keys.add(e.key);
+/* ====== 粒子系统 ====== */
+function spawnParticles(x,y,count=8,color='#f59e0b') {
+  for(let i=0;i<count;i++) {
+    particles.push({
+      x,y,
+      vx: rand(-80,80),
+      vy: rand(-160,0),
+      life: 1,
+      color,
+      size: rand(2,5)
     });
-    window.addEventListener('keyup', e => keys.delete(e.key));
+  }
+}
+function updateParticles(dt) {
+  for(let i=particles.length-1;i>=0;i--) {
+    const p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 600 * dt;
+    p.life -= dt * 2;
+    if(p.life <= 0) particles.splice(i,1);
+  }
+}
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.globalAlpha = clamp(p.life,0,1);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - cam.x, p.y - cam.y, p.size, p.size);
+  });
+  ctx.globalAlpha = 1;
+}
 
-    startBtn.addEventListener('click', () => { overlay.style.display = 'none'; running = true; gameOver = false; last = 0; });
-    hardBtn.addEventListener('click', () => {
-      difficulty = difficulty ? 0 : 1;
-      hardBtn.textContent = difficulty ? '难度：困难' : '难度：简单';
-      reset();
-    });
+/* ====== 关卡生成（保证可跳） ====== */
+function generateLevel() {
+  platforms = [{x:0,y:500,w:300,h:40}]; // 起始平台
+  coins = []; enemies = [];
+  let x = 300;
+  const maxJumpH = (PARAM.jumpVel*PARAM.jumpVel)/(2*PARAM.gravity); // 理论最大上升高度
+  const maxJumpT = PARAM.jumpVel/PARAM.gravity;                     // 上升时间
+  const maxJumpD = PARAM.playerSpeed * maxJumpT * 2.2;             // 允许水平跨距（略放宽）
+  for(let i=0;i<12+level*3;i++) {
+    const last = platforms[platforms.length-1];
+    const w = rand(120,260);
+    // 水平距离：保证在 maxJumpD 内
+    const dx = rand(60, maxJumpD-20);
+    // 垂直距离：下落不超过 maxJumpH*0.8，上升不超过 maxJumpH*0.6
+    const dyUp   = rand(-maxJumpH*0.6, 0);
+    const dyDown = rand(0, maxJumpH*0.8);
+    const y = clamp(last.y + (Math.random()<0.5 ? dyUp : dyDown), 280, 560);
+    platforms.push({x:x+dx,y,w,h:30});
+    // 金币与敌人
+    if(Math.random()<0.7) coins.push({x:x+dx+rand(20,w-20),y:y-40,w:16,h:16});
+    if(Math.random()<0.4) enemies.push({x:x+dx+rand(20,w-20),y:y-40,w:24,h:24,dir:1});
+    x += dx + w;
+  }
+  // 终点旗
+  platforms.push({x:x-60,y:300,w:60,h:300,flag:true});
+}
 
-    // 初始化
-    reset();
-    requestAnimationFrame(step);
-  </script>
+/* ====== 物理与碰撞 ====== */
+function collides(a,b) {
+  return !(a.x+a.w<b.x||a.x>b.x+b.w||a.y+a.h<b.y||a.y>b.y+b.h);
+}
+
+/* ====== 游戏循环 ====== */
+let running = true;
+let last = 0;
+let reachedFlag = false;
+
+function update(dt) {
+  if(!running) return;
+
+  /* ---- 输入 ---- */
+  let ax = 0;
+  if(keys.has('KeyA')||keys.has('ArrowLeft')) ax -= 1;
+  if(keys.has('KeyD')||keys.has('ArrowRight')) ax += 1;
+  player.vx = ax * PARAM.playerSpeed;
+  if((keys.has('KeyW')||keys.has('ArrowUp')||keys.has('Space')) && player.onGround) {
+    player.vy = -PARAM.jumpVel;
+    player.onGround = false;
+  }
+
+  /* ---- 物理 ---- */
+  player.vy += PARAM.gravity * dt;
+  player.x += player.vx * dt;
+  player.y += player.vy * dt;
+
+  /* ---- 平台碰撞 ---- */
+  player.onGround = false;
+  for(const p of platforms) {
+    if(player.vy>0 && collides(player,{x:p.x,y:p.y-player.h/2,w:p.w,h:0})) {
+      player.y = p.y - player.h; player.vy = 0; player.onGround = true;
+    }
+    if(p.flag && collides(player,p)) reachedFlag = true;
+  }
+
+  /* ---- 金币 ---- */
+  for(let i=coins.length-1;i>=0;i--) {
+    if(collides(player,coins[i])) {
+      spawnParticles(coins[i].x+8,coins[i].y+8,10,'#f59e0b');
+      coins.splice(i,1);
+      player.coins++;
+    }
+  }
+
+  /* ---- 敌人 ---- */
+  for(const en of enemies) {
+    en.x += en.dir * PARAM.enemySpeed * dt;
+    const p = platforms.find(p => en.x>=p.x && en.x<=p.x+p.w && en.y+en.h<=p.y+5 && en.y+en.h>=p.y-5);
+    if(!p || en.x<=p.x || en.x+en.w>=p.x+p.w) en.dir *= -1;
+    if(collides(player,en) && player.invuln<=0) {
+      player.hp--;
+      player.invuln = 1.2;
+      spawnParticles(player.x+player.w/2,player.y+player.h/2,12,'#ef4444');
+      if(player.hp<=0) { resetGame(); return; }
+    }
+  }
+  if(player.invuln>0) player.invuln -= dt;
+
+  /* ---- 相机 ---- */
+  /* ---- 相机（玩家位于屏幕横向 1/3 处） ---- */
+  const viewW = canvas.clientWidth;
+  cam.x = player.x - viewW / 3;
+  cam.y = player.y - canvas.clientHeight / 2;
+
+  /* ---- 过关检测 ---- */
+  if(reachedFlag) {
+    level++;
+    player.x = 120; player.y = 300; player.vy = 0;
+    generateLevel();
+    reachedFlag = false;
+  }
+
+  /* ---- 掉落致死 ---- */
+  if(player.y > PARAM.deathY) { resetGame(); return; }
+
+  /* ---- 粒子 ---- */
+  updateParticles(dt);
+
+  /* ---- UI ---- */
+  document.getElementById('hp').textContent = player.hp;
+  document.getElementById('coins').textContent = player.coins;
+  document.getElementById('level').textContent = level;
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
+  /* 背景网格 */
+  ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+  for(let x=-cam.x%40;x<canvas.clientWidth;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.clientHeight);ctx.stroke();}
+  for(let y=-cam.y%40;y<canvas.clientHeight;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.clientWidth,y);ctx.stroke();}
+
+  /* 平台 */
+  platforms.forEach(p => {
+    ctx.fillStyle = p.flag ? '#10b981' : '#374151';
+    ctx.fillRect(p.x-cam.x,p.y-cam.y,p.w,p.h);
+    if(p.flag) { ctx.fillStyle='#fff'; ctx.font='16px sans-serif'; ctx.fillText('旗',p.x+20-cam.x,p.y+40-cam.y); }
+  });
+
+  /* 金币 */
+  ctx.fillStyle = '#f59e0b';
+  coins.forEach(c => { ctx.beginPath(); ctx.arc(c.x+8-cam.x,c.y+8-cam.y,8,0,Math.PI*2); ctx.fill(); });
+
+  /* 敌人 */
+  ctx.fillStyle = '#ef4444';
+  enemies.forEach(e => { ctx.fillRect(e.x-cam.x,e.y-cam.y,e.w,e.h); });
+
+  /* 粒子 */
+  drawParticles();
+
+  /* 玩家 */
+  ctx.fillStyle = player.invuln>0 && Math.floor(player.invuln*10)%2 ? '#60a5fa' : '#3b82f6';
+  ctx.fillRect(player.x-cam.x,player.y-cam.y,player.w,player.h);
+}
+
+function loop(ts) {
+  const now = ts/1000;
+  const dt = last ? clamp(now-last,0,0.033) : 0;
+  last = now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function resetGame() {
+  player.hp = 3; player.coins = 0; player.invuln = 0;
+  level = 1;
+  player.x = 120; player.y = 300; player.vy = 0;
+  generateLevel();
+  reachedFlag = false;
+}
+
+/* ====== 调参面板绑定 ====== */
+const panel = document.getElementById('panel');
+document.getElementById('panelBtn').onclick = () => panel.style.display = panel.style.display==='block'?'none':'block';
+function bindSlider(id,paramKey,scale=1) {
+  const slider = document.getElementById(id);
+  const val = document.getElementById(id.replace('Slider','Val'));
+  slider.value = PARAM[paramKey]/scale;
+  val.textContent = PARAM[paramKey];
+  slider.oninput = () => { PARAM[paramKey] = Number(slider.value)*scale; val.textContent = PARAM[paramKey]; };
+}
+bindSlider('gSlider','gravity',1);
+bindSlider('jSlider','jumpVel',1);
+bindSlider('sSlider','playerSpeed',1);
+bindSlider('eSlider','enemySpeed',1);
+bindSlider('dSlider','platformGap',1);
+document.getElementById('resetBtn').onclick = resetGame;
+
+/* ====== 暂停 ====== */
+document.getElementById('pauseBtn').onclick = () => { running = !running; document.getElementById('pauseBtn').textContent = running ? '暂停' : '继续'; };
+
+/* ====== 启动 ====== */
+resetGame();
+requestAnimationFrame(loop);
+</script>
 </body>
 </html>
